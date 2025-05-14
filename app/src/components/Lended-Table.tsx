@@ -1,3 +1,6 @@
+// src/components/LendedTable.tsx
+'use client'
+
 const lendingData = [
   {
     date: '2025-05-14',
@@ -31,12 +34,17 @@ const lendingData = [
     usdtEquivalent: '12,000 USDT',
     wallet: '0',
   },
+  // ...more entries if needed
 ]
 
+const MAX_DISPLAY = 20
+
 export default function LendedTable() {
+  const displayed = lendingData.slice(0, MAX_DISPLAY)
+
   return (
-    <>
-      {/* Header */}
+    <div className="w-full mt-10">
+      {/* Table Header */}
       <div className="flex items-center justify-between bg-slate-900 text-white font-semibold rounded-t-2xl px-4 py-3">
         <div className="flex-1">Date</div>
         <div className="flex-1 text-right">Type</div>
@@ -45,9 +53,9 @@ export default function LendedTable() {
       </div>
 
       {/* Lending Data Rows */}
-      {lendingData.map((row, index) => (
+      {displayed.map((row, idx) => (
         <div
-          key={index}
+          key={idx}
           className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-b-2xl p-4 mt-2 transition"
         >
           {/* Date */}
@@ -70,6 +78,12 @@ export default function LendedTable() {
           </div>
         </div>
       ))}
-    </>
+
+      {lendingData.length > MAX_DISPLAY && (
+        <div className="text-center text-slate-400 text-sm mt-4">
+          Showing {MAX_DISPLAY} of {lendingData.length} entries
+        </div>
+      )}
+    </div>
   )
 }

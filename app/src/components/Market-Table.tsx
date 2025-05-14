@@ -1,5 +1,16 @@
+// src/components/MarketTable.tsx
+'use client'
+
+import { useState } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { SupplyModal, AssetRow as SupplyRow } from './Supply-Modal'
+import { BorrowModal, AssetRow as BorrowRow } from './Borrow-Modal'
+
+type AssetRow = SupplyRow & BorrowRow
+
 export default function MarketTable() {
-  const marketData = [
+  const PAGE_SIZE = 20
+  const marketData: AssetRow[] = [
     {
       asset: 'USDC',
       icon: '/icons/usdc.svg',
@@ -88,7 +99,18 @@ export default function MarketTable() {
       supplyApy: '5.10%',
       borrowApy: '9.25%',
     },
+    // ...add more items here if needed...
   ]
+
+  const totalPages = Math.ceil(marketData.length / PAGE_SIZE)
+  const [page, setPage] = useState(0)
+
+  const start = page * PAGE_SIZE
+  const end = start + PAGE_SIZE
+  const displayed = marketData.slice(start, end)
+
+  const [supplyActive, setSupplyActive] = useState<AssetRow | null>(null)
+  const [borrowActive, setBorrowActive] = useState<AssetRow | null>(null)
 
   return (
     <div className="w-full mt-10">
@@ -104,7 +126,7 @@ export default function MarketTable() {
       </div>
 
       {/* Table Rows */}
-      {marketData.map((item) => (
+      {displayed.map((item) => (
         <div
           key={item.asset}
           className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-2xl p-4 mt-2 transition"
@@ -138,11 +160,46 @@ export default function MarketTable() {
 
           {/* Actions */}
           <div className="flex-1 flex justify-end gap-2">
-            <button className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 text-sm">Supply</button>
-            <button className="px-4 py-2 bg-slate-700 rounded-lg hover:bg-slate-600 text-sm">Borrow</button>
+            <SupplyModal
+              row={item}
+              open={supplyActive?.asset === item.asset}
+              onOpenChange={(open) => setSupplyActive(open ? item : null)}
+              onDeposit={(amt) => console.log('SUPPLY', amt, item.asset)}
+            />
+            <BorrowModal
+              row={item}
+              open={borrowActive?.asset === item.asset}
+              onOpenChange={(open) => setBorrowActive(open ? item : null)}
+              onBorrow={(amt, token, collAmt) => console.log('BORROW', amt, item.asset, 'with', collAmt, token)}
+            />
           </div>
         </div>
       ))}
+
+      {/* Pagination Controls */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+            disabled={page === 0}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="w-5 h-5 text-slate-400" />
+          </button>
+          <span className="text-slate-400 text-sm">
+            Showing {start + 1}&ndash;{Math.min(end, marketData.length)} of {marketData.length}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+            disabled={page >= totalPages - 1}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition"
+            aria-label="Next"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

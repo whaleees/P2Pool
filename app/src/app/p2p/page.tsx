@@ -1,9 +1,12 @@
+// src/app/p2p/page.tsx
 'use client'
+
 import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 import P2PTable from '@/components/P2P-Table'
+import LenderForm from '@/components/Lender-Form'
 
-function Page() {
+export default function Page() {
   const pathname = usePathname()
 
   function getTitle(path: string) {
@@ -12,7 +15,7 @@ function Page() {
     return 'Borrow / Lend'
   }
 
-  const PopulerPicks = [
+  const PopularPicks = [
     { label: 'BTC', href: '/btc' },
     { label: 'ETH', href: '/eth' },
     { label: 'USDC', href: '/usdc' },
@@ -33,10 +36,11 @@ function Page() {
         <p className="text-base text-slate-400">Peer-to-peer lending with flexible terms and direct user matching.</p>
       </div>
 
+      {/* Popular Picks */}
       <div className="text-slate-600 mt-10">
         <div className="flex items-center gap-2 mb-5">
           <h1 className="border-r-2 border-slate-700 pr-2">Popular Picks</h1>
-          {PopulerPicks.map((link) => (
+          {PopularPicks.map((link) => (
             <Link
               key={link.href}
               href={link.href}
@@ -50,9 +54,11 @@ function Page() {
         </div>
       </div>
 
+      {/* Become a Lender Form */}
+      <LenderForm />
+
+      {/* P2P Listings */}
       <P2PTable />
     </div>
   )
 }
-
-export default Page

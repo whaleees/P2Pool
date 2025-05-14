@@ -26,7 +26,7 @@ export default function Home() {
       <MarketBar></MarketBar>
 
       {/* Market Tables */}
-      <div className="flex flex-col gap-10 mt-15 text-white mb-10">
+      <div className="flex flex-col gap-10 mt-15 text-white">
         <div>
           <div className="flex items-center gap-2 mb-5">
             <img src="" alt="" className="w-6 h-6" />
