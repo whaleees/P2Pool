@@ -1,4 +1,3 @@
-// src/components/BorrowRequestModal.tsx
 'use client'
 
 import { FC, useState } from 'react'
@@ -28,6 +27,7 @@ export interface P2PRow {
   collateral_token: string
   collateral_min: number
   collateral_usdt: number
+  duration: number
   created_at: string
 }
 
@@ -41,10 +41,26 @@ interface BorrowRequestModalProps {
 export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onOpenChange, onRequest }) => {
   const [amount, setAmount] = useState<number>(0)
   const [collAmt, setCollAmt] = useState<number>(0)
+  const [submitting, setSubmitting] = useState(false)
 
-  // example business rules
   const minBorrow = row.offer_amount * 0.1
   const usdtPerCollateralUnit = row.collateral_usdt / row.collateral_min
+
+  const handleRequest = async () => {
+    setSubmitting(true)
+
+    try {
+      // Simulate backend call
+      onRequest(amount, collAmt)
+      alert('✅ Borrow request submitted.')
+    } catch (err) {
+      console.error(err)
+      alert('❌ Failed to submit request.')
+    } finally {
+      setSubmitting(false)
+      onOpenChange(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -56,11 +72,9 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
 
       <DialogOverlay className="fixed inset-0 bg-black/60" />
 
-      {/* Center via left-1/2/top-1/2 + translate */}
       <DialogContent
         className="
-        fixed
-        left-1/2 top-1/2
+        fixed left-1/2 top-1/2
         w-[90vw] max-w-md max-h-[80vh]
         -translate-x-1/2 -translate-y-1/2
         rounded-2xl bg-slate-800 p-6 shadow-xl overflow-auto
@@ -72,12 +86,15 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
 
         <div className="mt-4 space-y-2 text-sm text-slate-200">
           <div>
-            <span className="font-medium text-white">Offered Amount:</span> {row.offer_amount} {row.offer_token} (~
+            <span className="font-medium text-white">Offered:</span> {row.offer_amount} {row.offer_token} (~
             {row.offer_usdt} USDT)
           </div>
           <div>
             <span className="font-medium text-white">Collateral Required:</span> {row.collateral_token} (min{' '}
             {row.collateral_min})
+          </div>
+          <div>
+            <span className="font-medium text-white">Duration:</span> {row.duration} days
           </div>
         </div>
 
@@ -121,13 +138,10 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
         <DialogFooter className="mt-6">
           <Button
             className="w-full rounded-lg bg-gradient-to-r from-sky-400 to-blue-600"
-            onClick={() => {
-              onRequest(amount, collAmt)
-              onOpenChange(false)
-            }}
-            disabled={amount < minBorrow || collAmt < row.collateral_min}
+            onClick={handleRequest}
+            disabled={amount < minBorrow || collAmt < row.collateral_min || submitting}
           >
-            Request Borrow
+            {submitting ? 'Submitting…' : 'Request Borrow'}
           </Button>
         </DialogFooter>
       </DialogContent>

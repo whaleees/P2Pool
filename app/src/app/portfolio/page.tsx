@@ -1,22 +1,33 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import { ArrowLeft, PlusCircle } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import LendedTable from '@/components/Lended-Table'
 import BorrowTable from '@/components/Borrow-Table'
 import TransactionLog from '@/components/TransactionLog'
 import P2PRequests from '@/components/P2P-Requests'
-import { Button } from '@/components/ui/button'
+import { ArrowLeft } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
-export default function DashboardPage() {
-  const router = useRouter()
+export default function PortfolioPage() {
+  const [wallet, setWallet] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<'lended' | 'borrowed' | 'log' | 'pending'>('lended')
+  const router = useRouter()
+
+  useEffect(() => {
+    const stored = localStorage.getItem('wallet')
+    if (stored) setWallet(stored)
+  }, [])
+
+  if (!wallet) {
+    return (
+      <div className="w-[70vw] mx-auto mt-10 text-center text-slate-400">
+        Please connect your wallet to view your portfolio.
+      </div>
+    )
+  }
 
   return (
     <div className="w-[70vw] mx-auto mt-10">
-      {/* Header */}
       <div className="flex flex-col gap-y-3 mb-5">
         <div className="flex gap-x-3 text-white items-center">
           <button
@@ -31,7 +42,6 @@ export default function DashboardPage() {
         <h1 className="text-slate-400">Track all your positions in one place</h1>
       </div>
 
-      {/* Summary Boxes */}
       <div className="flex gap-x-3 text-white">
         <div className="bg-slate-800 p-5 flex flex-col gap-y-2 w-1/3 rounded-md">
           <h1 className="text-slate-600">Net Value</h1>
@@ -44,31 +54,20 @@ export default function DashboardPage() {
         </div>
       </div>
 
-      <div className="border-t border-slate-700 mt-5"></div>
-
-      {/* Tab Switcher */}
-      <div className="my-3 flex text-white bg-slate-800 w-fit rounded-md">
-        {[
-          { key: 'lended', label: 'Lended' },
-          { key: 'borrowed', label: 'Borrowed' },
-          { key: 'log', label: 'Transaction Log' },
-          { key: 'pending', label: 'Pending' },
-        ].map((tab) => (
+      <div className="my-3 flex text-white bg-slate-800 w-fit rounded-md mt-5">
+        {['lended', 'borrowed', 'log', 'pending'].map((tab) => (
           <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key as any)}
+            key={tab}
+            onClick={() => setActiveTab(tab as any)}
             className={`p-2 px-5 transition rounded-md ${
-              activeTab === tab.key ? 'bg-slate-600' : 'bg-slate-800 hover:bg-slate-700'
+              activeTab === tab ? 'bg-slate-600' : 'bg-slate-800 hover:bg-slate-700'
             }`}
           >
-            {tab.label}
+            {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
       </div>
 
-      <div className="border-t border-slate-700 mt-5"></div>
-
-      {/* Render Active Tab */}
       <div className="mt-4">
         {activeTab === 'lended' && <LendedTable />}
         {activeTab === 'borrowed' && <BorrowTable />}

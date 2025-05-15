@@ -1,4 +1,5 @@
-// src/components/CustomFooter.tsx
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
 import React from 'react'
@@ -11,7 +12,7 @@ export default function CustomFooter() {
         <div className="space-y-4">
           <h2 className="text-white text-2xl font-bold">LOGO</h2>
           <div className="flex space-x-4">
-            <Link href="#">
+            <Link href="#" aria-label="Discord">
               <Image
                 src="/icons/discord.svg"
                 alt="Discord"
@@ -20,91 +21,33 @@ export default function CustomFooter() {
                 className="hover:opacity-80 transition"
               />
             </Link>
-            <Link href="#">
+            <Link href="#" aria-label="X">
               <Image src="/icons/x.svg" alt="X" width={24} height={24} className="hover:opacity-80 transition" />
             </Link>
           </div>
-          <p className="text-sm">&copy; 2025 LOGO. All rights reserved.</p>
+          <p className="text-sm text-slate-500">&copy; 2025 LOGO. All rights reserved.</p>
         </div>
 
-        {/* About */}
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-3">About</h3>
-          <ul className="space-y-2">
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Documentation
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Terms
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Products */}
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-3">Products</h3>
-          <ul className="space-y-2">
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Lending
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Borrowing
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                P2P
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Liquidity
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Resources */}
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-3">Resources</h3>
-          <ul className="space-y-2">
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                FAQ
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Support
-              </Link>
-            </li>
-          </ul>
-        </div>
-
-        {/* Connect */}
-        <div>
-          <h3 className="text-white text-lg font-semibold mb-3">Connect</h3>
-          <ul className="space-y-2">
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                Discord
-              </Link>
-            </li>
-            <li>
-              <Link href="#" className="hover:text-white transition">
-                X
-              </Link>
-            </li>
-            <li className="text-slate-300">Telkomsel: Kresna Wintata</li>
-          </ul>
-        </div>
+        {/* Footer sections */}
+        {[
+          { title: 'About', items: ['Documentation', 'Terms'] },
+          { title: 'Products', items: ['Lending', 'Borrowing', 'P2P', 'Liquidity'] },
+          { title: 'Resources', items: ['FAQ', 'Support'] },
+          { title: 'Connect', items: ['Discord', 'X'] },
+        ].map(({ title, items }) => (
+          <div key={title}>
+            <h3 className="text-white text-lg font-semibold mb-3">{title}</h3>
+            <ul className="space-y-2">
+              {items.map((text) => (
+                <li key={text}>
+                  <Link href="#" className="hover:text-white transition">
+                    {text}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
       </div>
     </footer>
   )

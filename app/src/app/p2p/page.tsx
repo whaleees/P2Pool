@@ -1,64 +1,155 @@
-// src/app/p2p/page.tsx
 'use client'
 
-import { usePathname } from 'next/navigation'
-import Link from 'next/link'
-import P2PTable from '@/components/P2P-Table'
-import LenderForm from '@/components/Lender-Form'
+import React, { useState, useEffect } from 'react'
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
+import { BorrowRequestModal, P2PRow } from '@/components/Borrow-Request-Modal'
 
-export default function Page() {
-  const pathname = usePathname()
+interface ApiResult {
+  offers: P2PRow[]
+  total: number
+  page: number
+  pageSize: number
+}
 
-  function getTitle(path: string) {
-    if (path === '/p2p') return 'P2P'
-    if (path === '/portfolio') return 'Portfolio'
-    return 'Borrow / Lend'
+export default function P2PTable() {
+  const pageSize = 10
+  const [page, setPage] = useState(0)
+  const [offers, setOffers] = useState<P2PRow[]>([])
+  const [total, setTotal] = useState(0)
+  const [loading, setLoading] = useState(false)
+  const [active, setActive] = useState<P2PRow | null>(null)
+  const [wallet, setWallet] = useState<string | null>(null)
+
+  const totalPages = Math.ceil(total / pageSize)
+
+  const fetchOffers = async () => {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/p2p-offers?page=${page}`)
+      const { offers, total }: ApiResult = await res.json()
+      setOffers(offers)
+      setTotal(total)
+    } catch (err) {
+      console.error('Failed to fetch offers:', err)
+      setOffers([])
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const PopularPicks = [
-    { label: 'BTC', href: '/btc' },
-    { label: 'ETH', href: '/eth' },
-    { label: 'USDC', href: '/usdc' },
-    { label: 'USDT', href: '/usdt' },
-  ]
+  useEffect(() => {
+    const stored = localStorage.getItem('wallet')
+    if (stored) setWallet(stored)
+    fetchOffers()
+  }, [page])
 
-  function isActive(href: string) {
-    return pathname === href
+  const handleRequest = (amount: number, collateralAmt: number, row: P2PRow) => {
+    if (!wallet) {
+      alert('Please connect your wallet before submitting a request.')
+      return
+    }
+    console.log('✅ REQUEST BORROW:', row.lender, amount, collateralAmt)
+    alert('Borrow request submitted!')
   }
 
   return (
-    <div className="w-[70vw] mx-auto mt-10">
-      {/* Title */}
-      <div className="text-center flex gap-2.5 flex-col items-center">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-sky-400 to-blue-600 bg-clip-text text-transparent">
-          {getTitle(pathname)}
-        </h1>
-        <p className="text-base text-slate-400">Peer-to-peer lending with flexible terms and direct user matching.</p>
-      </div>
-
-      {/* Popular Picks */}
-      <div className="text-slate-600 mt-10">
-        <div className="flex items-center gap-2 mb-5">
-          <h1 className="border-r-2 border-slate-700 pr-2">Popular Picks</h1>
-          {PopularPicks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`hover:text-sky-400 ${
-                isActive(link.href) ? 'underline decoration-[#49AFE9] underline-offset-10 text-sky-400' : ''
-              }`}
-            >
-              {link.label}
-            </Link>
-          ))}
+    <div className="w-full mt-10">
+      {/* Header Row */}
+      <div className="flex justify-between items-center px-6 pb-2 text-slate-400 text-xs font-semibold uppercase">
+        <div className="flex-1">Lender</div>
+        <div className="flex-1 text-right">Lending Offer</div>
+        <div className="flex-1 text-right">Collateral Required</div>
+        <div className="flex-1 text-right">Duration</div>
+        <div className="flex-1 text-right flex justify-end gap-2">
+          <span>Action</span>
+          <button
+            title="Refresh offers"
+            onClick={fetchOffers}
+            className="p-1 text-slate-400 hover:text-white transition"
+          >
+            <RotateCcw className="w-4 h-4" />
+          </button>
         </div>
       </div>
 
-      {/* Become a Lender Form */}
-      <LenderForm />
+      {/* Loading */}
+      {loading && <div className="text-center py-8 text-slate-400">Loading offers…</div>}
 
-      {/* P2P Listings */}
-      <P2PTable />
+      {/* Empty state */}
+      {!loading && offers.length === 0 && (
+        <div className="text-center py-8 text-slate-400">No P2P offers available at the moment.</div>
+      )}
+
+      {/* Offers List */}
+      {!loading &&
+        offers.map((row) => (
+          <div
+            key={row.id}
+            className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-2xl p-4 mt-2 transition"
+          >
+            {/* Lender Info */}
+            <div className="flex-1 text-white">
+              <div className="font-semibold">{row.lender}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                {row.total_orders} orders | {row.completion} completion
+              </div>
+            </div>
+
+            {/* Offer */}
+            <div className="flex-1 text-right text-white">
+              <div className="font-semibold">
+                {row.offer_amount} {row.offer_token}
+              </div>
+              <div className="text-xs text-slate-400 mt-1">≈ {row.offer_usdt} USDT</div>
+            </div>
+
+            {/* Collateral */}
+            <div className="flex-1 text-right text-white">
+              <div className="font-semibold">{row.collateral_token}</div>
+              <div className="text-xs text-slate-400 mt-1">
+                Min: {row.collateral_min} ≈ {row.collateral_usdt} USDT
+              </div>
+            </div>
+
+            {/* Duration */}
+            <div className="flex-1 text-right text-white font-semibold">{row.duration} days</div>
+
+            {/* Borrow Action */}
+            <div className="flex-1 flex justify-end">
+              <BorrowRequestModal
+                row={row}
+                open={active?.id === row.id}
+                onOpenChange={(o) => setActive(o ? row : null)}
+                onRequest={(amt, collAmt) => handleRequest(amt, collAmt, row)}
+              />
+            </div>
+          </div>
+        ))}
+
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-6">
+          <button
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+            disabled={page === 0}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-full"
+          >
+            <ChevronLeft className="w-5 h-5 text-slate-400" />
+          </button>
+
+          <span className="text-slate-400 text-sm">
+            Page {page + 1} of {totalPages}
+          </span>
+
+          <button
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+            disabled={page >= totalPages - 1}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-full"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,3 @@
-// src/components/Borrow-Modal.tsx
 'use client'
 
 import { FC, useState } from 'react'
@@ -38,17 +37,27 @@ export const BorrowModal: FC<BorrowModalProps> = ({ row, open, onOpenChange, onB
   const [borrowAmt, setBorrowAmt] = useState<number>(0)
   const [collateralToken, setCollateralToken] = useState<string>('USDC')
   const [collateralAmt, setCollateralAmt] = useState<number>(0)
+  const [submitting, setSubmitting] = useState(false)
 
-  // Calculate min/max borrow in units of row.asset
   const totalSupplyNum = parseFloat(row.totalSupply.replace(/[,M]/g, ''))
-  const minBorrowPct = 1 // e.g. 1% of totalSupply
-  const minBorrow = (totalSupplyNum * minBorrowPct) / 100
+  const minBorrow = (totalSupplyNum * 1) / 100
   const maxBorrowPct = parseFloat(row.ltv.replace('%', '')) || 50
   const maxBorrow = (totalSupplyNum * maxBorrowPct) / 100
+  const minCollateral = (borrowAmt * maxBorrowPct) / 100
 
-  // Collateral LTV logic
-  const minCollateralPct = parseFloat(row.ltv.replace('%', '')) || 50
-  const minCollateral = (borrowAmt * minCollateralPct) / 100
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    try {
+      onBorrow(borrowAmt, collateralToken, collateralAmt)
+      alert('✅ Borrow request submitted.')
+    } catch (error) {
+      console.error('Borrow failed:', error)
+      alert('❌ Borrow failed. Please try again.')
+    } finally {
+      setSubmitting(false)
+      onOpenChange(false)
+    }
+  }
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -88,7 +97,7 @@ export const BorrowModal: FC<BorrowModalProps> = ({ row, open, onOpenChange, onB
           </div>
         </div>
 
-        {/* Borrow Amount */}
+        {/* Borrow Input */}
         <div className="mt-6">
           <Label htmlFor="borrowAmt" className="text-slate-300">
             Borrow Amount ({row.asset})
@@ -106,7 +115,7 @@ export const BorrowModal: FC<BorrowModalProps> = ({ row, open, onOpenChange, onB
           </p>
         </div>
 
-        {/* Collateral Selector + Amount */}
+        {/* Collateral Inputs */}
         <div className="mt-4 flex gap-2">
           <div className="flex-1 flex flex-col gap-1">
             <Label htmlFor="collatToken" className="text-slate-300">
@@ -147,13 +156,10 @@ export const BorrowModal: FC<BorrowModalProps> = ({ row, open, onOpenChange, onB
         <DialogFooter className="mt-6">
           <Button
             className="w-full rounded-lg bg-gradient-to-r from-sky-400 to-blue-600 text-white"
-            onClick={() => {
-              onBorrow(borrowAmt, collateralToken, collateralAmt)
-              onOpenChange(false)
-            }}
-            disabled={borrowAmt < minBorrow || collateralAmt < minCollateral}
+            onClick={handleSubmit}
+            disabled={borrowAmt < minBorrow || borrowAmt > maxBorrow || collateralAmt < minCollateral || submitting}
           >
-            Request Borrow
+            {submitting ? 'Submitting…' : 'Request Borrow'}
           </Button>
         </DialogFooter>
       </DialogContent>

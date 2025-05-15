@@ -50,6 +50,7 @@ export default function P2PTable() {
         <div className="flex-1">Lender</div>
         <div className="flex-1 text-right">Lending Offer</div>
         <div className="flex-1 text-right">Collateral Required</div>
+        <div className="flex-1 text-right">Duration</div>
         <div className="flex-1 text-right">Action</div>
       </div>
 
@@ -63,14 +64,15 @@ export default function P2PTable() {
             key={row.id}
             className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-2xl p-4 mt-2 transition"
           >
+            {/* Lender */}
             <div className="flex-1 text-white">
               <div className="font-semibold">{row.lender}</div>
               <div className="text-xs text-slate-400 mt-1">
                 {row.total_orders} orders | {row.completion} completion
               </div>
-              <div className="text-xs text-green-400">👍{row.like_rate}</div>
             </div>
 
+            {/* Lending Offer */}
             <div className="flex-1 text-right text-white">
               <div className="font-semibold">
                 {row.offer_amount} {row.offer_token}
@@ -78,6 +80,7 @@ export default function P2PTable() {
               <div className="text-xs text-slate-400 mt-1">≈ {row.offer_usdt} USDT</div>
             </div>
 
+            {/* Collateral Required */}
             <div className="flex-1 text-right text-white">
               <div className="font-semibold">{row.collateral_token}</div>
               <div className="text-xs text-slate-400 mt-1">
@@ -85,6 +88,12 @@ export default function P2PTable() {
               </div>
             </div>
 
+            {/* Duration */}
+            <div className="flex-1 text-right text-white">
+              <div className="font-semibold">{row.duration} days</div>
+            </div>
+
+            {/* Action */}
             <div className="flex-1 flex justify-end">
               <BorrowRequestModal
                 row={row}

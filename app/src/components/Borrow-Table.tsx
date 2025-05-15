@@ -1,7 +1,6 @@
-// src/components/BorrowTable.tsx
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
@@ -16,10 +15,18 @@ interface BorrowRow {
 
 export default function BorrowTable() {
   const PAGE_SIZE = 20
+  const [page, setPage] = useState(0)
+  const [wallet, setWallet] = useState<string | null>(null)
+  const [submittingIndex, setSubmittingIndex] = useState<number | null>(null)
+
+  useEffect(() => {
+    const stored = localStorage.getItem('wallet')
+    if (stored) setWallet(stored)
+  }, [])
+
+  // Dummy data
   const tokens = ['BTC', 'USDT', 'XRP', 'ETH', 'SOL']
   const modes: BorrowRow['type'][] = ['p2p', 'pool']
-
-  // generate 30 dummy rows
   const allData: BorrowRow[] = Array.from({ length: 30 }, (_, i) => {
     const day = (i % 30) + 1
     const date = `2025-05-${String(day).padStart(2, '0')}`
@@ -28,17 +35,52 @@ export default function BorrowTable() {
     const base = i + 1
     const amount = `${(base * 10).toLocaleString()} ${token}`
     const usdtEquivalent = `${(base * 10 * 100).toLocaleString()} USDT`
-    const wallet = type === 'p2p' ? `0x${Math.floor(Math.random() * 1e12).toString(16)}` : '-'
+    const w = type === 'p2p' ? `0x${Math.floor(Math.random() * 1e12).toString(16)}` : '-'
 
-    return { date, type, token, amount, usdtEquivalent, wallet }
+    return { date, type, token, amount, usdtEquivalent, wallet: w }
   })
 
   const totalPages = Math.ceil(allData.length / PAGE_SIZE)
-  const [page, setPage] = useState(0)
-
   const start = page * PAGE_SIZE
   const end = start + PAGE_SIZE
   const displayed = allData.slice(start, end)
+
+  const handleRepay = async (row: BorrowRow, index: number) => {
+    if (!wallet) {
+      alert('Please connect your wallet first.')
+      return
+    }
+
+    setSubmittingIndex(index)
+    try {
+      const res = await fetch('/api/transaction', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: row.type,
+          action: 'repay',
+          status: 'success',
+          token: row.token,
+          amount: parseFloat(row.amount.replace(/[,A-Z ]/g, '')),
+          usdt_value: parseFloat(row.usdtEquivalent.replace(/[,A-Z ]/g, '')),
+          wallet: row.wallet,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json()
+        console.error('Repay failed:', error)
+        alert('❌ Failed to repay transaction.')
+      } else {
+        alert('✅ Repayment logged successfully.')
+      }
+    } catch (error) {
+      console.error('Unexpected error:', error)
+      alert('❌ Unexpected error during repayment.')
+    } finally {
+      setSubmittingIndex(null)
+    }
+  }
 
   return (
     <div className="mt-6">
@@ -59,59 +101,31 @@ export default function BorrowTable() {
           key={start + idx}
           className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-b-2xl p-4 mt-2 transition text-sm"
         >
-          {/* Date */}
           <div className="flex-1 text-white">{row.date}</div>
-
-          {/* Type */}
-          <div className="flex-1 text-right text-white capitalize">{row.type}</div>
-
-          {/* Token */}
+          <div className="flex-1 text-right capitalize text-white">{row.type}</div>
           <div className="flex-1 text-right text-white">{row.token}</div>
 
-          {/* Amount + Equivalent */}
           <div className="flex-1 text-right">
             <div className="text-white">{row.amount}</div>
             <div className="text-xs text-slate-400 mt-1">≈ {row.usdtEquivalent}</div>
           </div>
 
-          {/* Wallet Address */}
-          <div className="flex-1 text-right text-white">{row.wallet}</div>
+          <div className="flex-1 text-right text-white">{row.wallet === '-' ? 'N/A' : row.wallet}</div>
 
-          {/* Action */}
           <div className="flex-1 flex justify-end">
             <Button
               size="sm"
               className="bg-slate-700 hover:bg-slate-600 text-white"
-              onClick={async () => {
-                const res = await fetch('/api/transaction', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    mode: row.type, // 'p2p' or 'pool'
-                    action: 'repay',
-                    status: 'success',
-                    token: row.token,
-                    amount: parseFloat(row.amount.replace(/[,A-Z ]/g, '')),
-                    usdt_value: parseFloat(row.usdtEquivalent.replace(/[,A-Z ]/g, '')),
-                    wallet: row.wallet,
-                  }),
-                })
-
-                if (!res.ok) {
-                  console.error('Failed to log repay', await res.json())
-                } else {
-                  console.log('Repay logged')
-                  // Optionally refresh the TransactionLog tab or show a toast
-                }
-              }}
+              onClick={() => handleRepay(row, idx)}
+              disabled={submittingIndex === idx}
             >
-              Repay
+              {submittingIndex === idx ? 'Repaying…' : 'Repay'}
             </Button>
           </div>
         </div>
       ))}
 
-      {/* Pagination Controls */}
+      {/* Pagination */}
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-4 mt-4">
           <button

@@ -1,144 +1,190 @@
-// src/components/LenderForm.tsx
 'use client'
 
-import { useState, useEffect } from 'react'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
-import { Button } from '@/components/ui/button'
+import { useEffect, useState } from 'react'
 
 export default function LenderForm() {
-  const [showForm, setShowForm] = useState(false)
-  const [wallet, setWallet] = useState('')
+  const [wallet, setWallet] = useState<string | null>(null)
   const [username, setUsername] = useState<string | null>(null)
-  const [token, setToken] = useState('USDC')
-  const [amount, setAmount] = useState('')
-  const [collateralToken, setCollateralToken] = useState('BTC')
-  const [collateralAmt, setCollateralAmt] = useState('')
+  const [usernameInput, setUsernameInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [form, setForm] = useState({
+    token: '',
+    total_supply: '',
+    collateral_token: '',
+    collateral_amount: '',
+    duration: '',
+  })
 
-  // mock “lookup” username when wallet changes
+  // Fetch wallet on mount
   useEffect(() => {
-    if (wallet.trim()) {
-      setUsername('John Doe') // pretend this came from your DB
-    } else {
-      setUsername(null)
+    const storedWallet = localStorage.getItem('wallet')
+    if (storedWallet) setWallet(storedWallet)
+  }, [])
+
+  // Check if wallet is registered
+  useEffect(() => {
+    if (wallet) {
+      fetch(`/api/lender?wallet=${encodeURIComponent(wallet)}`)
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.name) setUsername(d.name)
+        })
     }
   }, [wallet])
 
-  const rates: Record<string, number> = {
-    USDC: 1,
-    USDT: 1,
-    BTC: 50000,
-    ETH: 4000,
-    SOL: 100,
+  // If wallet connected but no username
+  if (wallet && !username) {
+    return (
+      <div className="mt-6 max-w-sm mx-auto flex flex-col gap-2 bg-slate-800 p-4 rounded">
+        <p className="text-slate-200">
+          Wallet <code>{wallet}</code> isn’t registered. Pick a one-time username:
+        </p>
+        <input
+          type="text"
+          value={usernameInput}
+          onChange={(e) => setUsernameInput(e.target.value)}
+          className="px-3 py-2 bg-slate-700 border border-slate-600 rounded text-white"
+          placeholder="YourUsername"
+        />
+        <p className="text-xs text-slate-500">This username is permanent and tied to your wallet.</p>
+        <button
+          disabled={!usernameInput.trim()}
+          onClick={async () => {
+            setLoading(true)
+            const res = await fetch('/api/lender', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ wallet, name: usernameInput.trim() }),
+            })
+            const data = await res.json()
+            if (data.name) {
+              setUsername(data.name)
+              localStorage.setItem('wallet', wallet)
+            }
+            setLoading(false)
+          }}
+          className="mt-2 px-4 py-2 bg-gradient-to-r from-sky-400 to-blue-600 rounded text-white disabled:opacity-50"
+        >
+          {loading ? 'Registering…' : 'Register as Lender'}
+        </button>
+      </div>
+    )
   }
 
-  const parsedAmt = parseFloat(amount) || 0
-  const eq = (parsedAmt * (rates[token] || 0)).toFixed(2)
+  // Calculate dynamic USDT value
+  const getTokenPrice = async (token: string): Promise<number> => {
+    const mockPrices: Record<string, number> = {
+      SOL: 25,
+      ETH: 2000,
+      USDC: 1,
+      USDT: 1,
+      BTC: 30000,
+    }
+    return mockPrices[token.toUpperCase()] || 1
+  }
 
-  const parsedColl = parseFloat(collateralAmt) || 0
-  const collEq = (parsedColl * (rates[collateralToken] || 0)).toFixed(2)
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({ ...form, [e.target.name]: e.target.value })
+  }
 
-  return (
-    <div className="mt-6">
-      <Button
-        variant="outline"
-        className="text-slate-300 border-slate-600 hover:border-slate-500 hover:text-white"
-        onClick={() => setShowForm((s) => !s)}
-      >
-        Become a Lender
-      </Button>
+  const handleSubmit = async () => {
+    if (!form.token || !form.total_supply || !form.collateral_token || !form.collateral_amount || !form.duration) {
+      alert('Please fill in all fields')
+      return
+    }
 
-      {showForm && (
-        <div className="bg-slate-800 rounded-2xl p-6 mt-4 space-y-5 max-w-md">
-          {/* Wallet */}
-          <div>
-            <Label htmlFor="wallet" className="text-slate-300">
-              Wallet Address
-            </Label>
-            <Input
-              id="wallet"
-              value={wallet}
-              onChange={(e) => setWallet(e.target.value)}
-              placeholder="0xABC…"
-              className="mt-1 bg-slate-700 border-slate-600 text-white"
-            />
-            {username && (
-              <p className="mt-1 text-sm text-slate-400">
-                Username: <span className="text-white">{username}</span>
-              </p>
-            )}
-          </div>
+    const usdtRate = await getTokenPrice(form.token)
+    const payload = {
+      user_wallet: wallet,
+      token: form.token,
+      total_supply: parseFloat(form.total_supply),
+      collateral_token: form.collateral_token,
+      collateral_amount: parseFloat(form.collateral_amount),
+      usdt_value: parseFloat(form.total_supply) * usdtRate,
+      duration: parseInt(form.duration),
+    }
 
-          {/* Token & Amount */}
-          <div>
-            <Label htmlFor="token" className="text-slate-300">
-              Token
-            </Label>
-            <Input
-              id="token"
-              list="token-list"
-              value={token}
-              onChange={(e) => setToken(e.target.value)}
-              className="mt-1 bg-slate-700 border-slate-600 text-white"
-            />
-            <datalist id="token-list">
-              {Object.keys(rates).map((t) => (
-                <option value={t} key={t} />
-              ))}
-            </datalist>
+    const res = await fetch('/api/p2p-offers', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
 
-            <Label htmlFor="amount" className="text-slate-300 mt-4">
-              Amount
-            </Label>
-            <Input
-              id="amount"
-              type="number"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.0"
-              className="mt-1 bg-slate-700 border-slate-600 text-white"
-            />
-            <p className="text-xs text-slate-400 mt-1">≈ ${eq} USDT</p>
-          </div>
+    if (res.ok) {
+      alert('✅ Offer posted to the market')
+      setForm({
+        token: '',
+        total_supply: '',
+        collateral_token: '',
+        collateral_amount: '',
+        duration: '',
+      })
+    } else {
+      alert('❌ Error posting offer')
+    }
+  }
 
-          {/* Collateral */}
-          <div>
-            <Label htmlFor="collateralToken" className="text-slate-300">
-              Collateral Token
-            </Label>
-            <Input
-              id="collateralToken"
-              list="token-list"
-              value={collateralToken}
-              onChange={(e) => setCollateralToken(e.target.value)}
-              className="mt-1 bg-slate-700 border-slate-600 text-white"
-            />
-
-            <Label htmlFor="collateralAmt" className="text-slate-300 mt-4">
-              Collateral Amount
-            </Label>
-            <Input
-              id="collateralAmt"
-              type="number"
-              value={collateralAmt}
-              onChange={(e) => setCollateralAmt(e.target.value)}
-              placeholder="0.0"
-              className="mt-1 bg-slate-700 border-slate-600 text-white"
-            />
-            <p className="text-xs text-slate-400 mt-1">≈ ${collEq} USDT</p>
-          </div>
-
-          <Button
-            onClick={() => {
-              console.log('MARKET with', { wallet, token, amount, collateralToken, collateralAmt })
-              // TODO: call your marketplace API
-            }}
-            className="w-full bg-gradient-to-r from-sky-400 to-blue-600 text-white rounded-lg hover:opacity-90 mt-2"
-          >
-            Market
-          </Button>
+  if (wallet && username) {
+    return (
+      <div className="mt-6 max-w-md mx-auto bg-slate-800 p-6 rounded-lg text-white">
+        <div className="mb-4">
+          <p className="text-sm text-slate-400">
+            Wallet: <code>{wallet}</code>
+          </p>
+          <p className="text-sm text-slate-400">
+            Username: <strong>{username}</strong>
+          </p>
         </div>
-      )}
-    </div>
-  )
+
+        <div className="space-y-3">
+          <input
+            name="token"
+            placeholder="Token (e.g. SOL)"
+            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+            value={form.token}
+            onChange={handleChange}
+          />
+          <input
+            name="total_supply"
+            placeholder="Supply Amount"
+            type="number"
+            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+            value={form.total_supply}
+            onChange={handleChange}
+          />
+          <input
+            name="collateral_token"
+            placeholder="Collateral Token (e.g. USDC)"
+            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+            value={form.collateral_token}
+            onChange={handleChange}
+          />
+          <input
+            name="collateral_amount"
+            placeholder="Collateral Amount"
+            type="number"
+            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+            value={form.collateral_amount}
+            onChange={handleChange}
+          />
+          <input
+            name="duration"
+            placeholder="Duration (days)"
+            type="number"
+            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+            value={form.duration}
+            onChange={handleChange}
+          />
+          <button
+            onClick={handleSubmit}
+            className="w-full mt-2 px-4 py-2 bg-gradient-to-r from-sky-400 to-blue-600 rounded"
+          >
+            Post Offer to Market
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  return <div className="mt-6 text-center text-slate-400">Loading wallet info…</div>
 }

@@ -1,57 +1,41 @@
-// src/app/api/pending/[id]/route.ts
 import { NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabaseClient'
+import { createClient } from '@supabase/supabase-js'
 
-interface Body {
-  action: 'accept' | 'reject'
+const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url)
+  const page = parseInt(searchParams.get('page') || '0')
+  const pageSize = 10
+  const from = page * pageSize
+  const to = from + pageSize - 1
+
+  const { data, count, error } = await supabase
+    .from('p2p_offers')
+    .select('*', { count: 'exact' })
+    .range(from, to)
+    .order('created_at', { ascending: false })
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ offers: data, total: count, page, pageSize })
 }
 
-export async function POST(request: Request, { params }: { params: { id: string } }) {
-  const id = Number(params.id)
-  if (!id) {
-    return NextResponse.json({ error: 'Invalid id' }, { status: 400 })
-  }
+export async function POST(req: Request) {
+  const body = await req.json()
+  const { user_wallet, token, total_supply, collateral_token, collateral_amount, usdt_value, duration } = body
 
-  const { action }: Body = await request.json()
-  if (action !== 'accept' && action !== 'reject') {
-    return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
-  }
-
-  // 1️⃣ Update the pending_requests row
-  const { error: upErr } = await supabase
-    .from('pending_requests')
-    .update({ status: action, updated_at: new Date() })
-    .eq('id', id)
-
-  if (upErr) {
-    return NextResponse.json({ error: upErr.message }, { status: 500 })
-  }
-
-  // 2️⃣ Fetch the updated row back so we can log it
-  const { data, error: fetchErr } = await supabase.from('pending_requests').select('*').eq('id', id).limit(1)
-
-  if (fetchErr || !data || data.length === 0) {
-    return NextResponse.json({ error: fetchErr?.message || 'Request not found' }, { status: 500 })
-  }
-
-  const req = data[0]
-
-  // 3️⃣ Insert into transaction_log
-  const { error: logErr } = await supabase.from('transaction_log').insert({
-    pending_id: id,
-    mode: 'p2p',
-    action: action,
-    status: action === 'accept' ? 'success' : 'failed',
-    token: req.token,
-    amount: req.amount,
-    usdt_value: req.usdt_value,
-    wallet: req.wallet_address,
-    created_at: new Date(),
+  const { error } = await supabase.from('p2p_offers').insert({
+    user_wallet,
+    offer_token: token,
+    offer_amount: total_supply,
+    collateral_token,
+    collateral_min: collateral_amount,
+    collateral_usdt: usdt_value,
+    offer_usdt: usdt_value,
+    duration,
+    created_at: new Date().toISOString(),
   })
 
-  if (logErr) {
-    return NextResponse.json({ error: logErr.message }, { status: 500 })
-  }
-
-  return NextResponse.json({ success: true }, { status: 201 })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ success: true })
 }

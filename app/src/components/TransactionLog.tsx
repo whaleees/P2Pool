@@ -1,8 +1,7 @@
-// src/components/TransactionLog.tsx
 'use client'
 
-import React, { useState } from 'react'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
+import React, { useEffect, useState } from 'react'
+import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 
 interface Transaction {
   date: string
@@ -17,34 +16,50 @@ interface Transaction {
 
 export default function TransactionLog() {
   const PAGE_SIZE = 20
-  const tokens = ['BTC', 'USDT', 'XRP', 'ETH', 'SOL']
-  const modes: Transaction['mode'][] = ['p2p', 'pool']
-  const actions: Transaction['action'][] = ['borrow', 'lend']
-  const statuses: Transaction['status'][] = ['Success', 'Failed', 'Pending']
-
-  // generate 30 dummy entries
-  const allData: Transaction[] = Array.from({ length: 30 }, (_, i) => {
-    const day = 14 - (i % 5)
-    const hour = (14 - (i % 24)).toString().padStart(2, '0')
-    const minute = ((i * 7) % 60).toString().padStart(2, '0')
-    const date = `2025-05-${String(day).padStart(2, '0')} ${hour}:${minute} UTC`
-    const mode = modes[i % modes.length]
-    const action = actions[i % actions.length]
-    const status = statuses[i % statuses.length]
-    const token = tokens[i % tokens.length]
-    const amount = (Math.random() * 1000 + 1).toFixed(2)
-    const usdtValue = (parseFloat(amount) * (Math.random() * 50000 + 1)).toFixed(0)
-    const wallet = mode === 'p2p' ? `0x${Math.floor(Math.random() * 1e12).toString(16)}` : '-'
-
-    return { date, mode, action, status, token, amount, usdtValue, wallet }
-  })
-
-  const totalPages = Math.ceil(allData.length / PAGE_SIZE)
+  const [transactions, setTransactions] = useState<Transaction[]>([])
   const [page, setPage] = useState(0)
+  const [wallet, setWallet] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
+  const totalPages = Math.ceil(transactions.length / PAGE_SIZE)
   const start = page * PAGE_SIZE
   const end = start + PAGE_SIZE
-  const displayed = allData.slice(start, end)
+  const displayed = transactions.slice(start, end)
+
+  const fetchTransactions = async () => {
+    if (!wallet) return
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/transactions?wallet=${wallet}`)
+      const data = await res.json()
+      setTransactions(data.transactions || [])
+    } catch (err) {
+      console.error('Failed to fetch transactions:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    const stored = localStorage.getItem('wallet')
+    if (stored) {
+      setWallet(stored)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (wallet) {
+      fetchTransactions()
+    }
+  }, [wallet])
+
+  if (!wallet) {
+    return (
+      <div className="w-full mt-6 text-center text-slate-400">
+        Please connect your wallet to view your transaction history.
+      </div>
+    )
+  }
 
   return (
     <div className="mt-6">
@@ -57,10 +72,23 @@ export default function TransactionLog() {
         <div className="flex-1 text-right">Token</div>
         <div className="flex-1 text-right">Amount</div>
         <div className="flex-1 text-right">≈ USDT</div>
-        <div className="flex-1 text-right">Wallet</div>
+        <div className="flex-1 text-right flex justify-end items-center gap-2">
+          Wallet
+          <button onClick={fetchTransactions} title="Refresh transactions">
+            <RotateCcw className="w-4 h-4 text-slate-400 hover:text-white transition" />
+          </button>
+        </div>
       </div>
 
-      {/* Rows */}
+      {/* Loading */}
+      {loading && <div className="text-center text-slate-400 mt-4">Loading transactions…</div>}
+
+      {/* Empty State */}
+      {!loading && transactions.length === 0 && (
+        <div className="text-center text-slate-400 mt-4">No transactions found.</div>
+      )}
+
+      {/* Transaction Rows */}
       {displayed.map((tx, idx) => (
         <div
           key={start + idx}
@@ -81,28 +109,28 @@ export default function TransactionLog() {
         </div>
       ))}
 
-      {/* Pagination Controls */}
-      <div className="flex items-center justify-center gap-4 mt-4">
-        <button
-          onClick={() => setPage((p) => Math.max(p - 1, 0))}
-          disabled={page === 0}
-          className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition"
-          aria-label="Previous"
-        >
-          <ChevronLeft className="w-5 h-5 text-slate-400" />
-        </button>
-        <span className="text-slate-400 text-sm">
-          Showing {start + 1}–{Math.min(end, allData.length)} of {allData.length}
-        </span>
-        <button
-          onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
-          disabled={page >= totalPages - 1}
-          className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 disabled:cursor-not-allowed rounded-full transition"
-          aria-label="Next"
-        >
-          <ChevronRight className="w-5 h-5 text-slate-400" />
-        </button>
-      </div>
+      {/* Pagination */}
+      {totalPages > 1 && (
+        <div className="flex items-center justify-center gap-4 mt-4">
+          <button
+            onClick={() => setPage((p) => Math.max(p - 1, 0))}
+            disabled={page === 0}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-full"
+          >
+            <ChevronLeft className="w-5 h-5 text-slate-400" />
+          </button>
+          <span className="text-slate-400 text-sm">
+            Showing {start + 1}–{Math.min(end, transactions.length)} of {transactions.length}
+          </span>
+          <button
+            onClick={() => setPage((p) => Math.min(p + 1, totalPages - 1))}
+            disabled={page >= totalPages - 1}
+            className="p-1 bg-slate-700 hover:bg-slate-600 disabled:opacity-50 rounded-full"
+          >
+            <ChevronRight className="w-5 h-5 text-slate-400" />
+          </button>
+        </div>
+      )}
     </div>
   )
 }
