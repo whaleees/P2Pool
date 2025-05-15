@@ -10,24 +10,47 @@ import { useRouter } from 'next/navigation'
 
 export default function PortfolioPage() {
   const [wallet, setWallet] = useState<string | null>(null)
+  const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<'lended' | 'borrowed' | 'log' | 'pending'>('lended')
   const router = useRouter()
 
   useEffect(() => {
-    const stored = localStorage.getItem('wallet')
-    if (stored) setWallet(stored)
+    const checkWallet = () => {
+      const stored = localStorage.getItem('wallet')
+      setWallet(stored)
+      setLoading(false)
+    }
+
+    checkWallet()
+
+    const handleChange = () => checkWallet()
+    window.addEventListener('storage', handleChange)
+    window.addEventListener('visibilitychange', handleChange)
+    window.addEventListener('wallet-change', handleChange) // Custom manual dispatch
+
+    return () => {
+      window.removeEventListener('storage', handleChange)
+      window.removeEventListener('visibilitychange', handleChange)
+      window.removeEventListener('wallet-change', handleChange)
+    }
   }, [])
+
+  if (loading) {
+    return <div className="w-[70vw] mx-auto mt-10 text-center text-slate-400">Loading wallet info...</div>
+  }
 
   if (!wallet) {
     return (
       <div className="w-[70vw] mx-auto mt-10 text-center text-slate-400">
-        Please connect your wallet to view your portfolio.
+        <h1 className="text-2xl mb-4">Portfolio</h1>
+        <p>Please connect your wallet to view your portfolio.</p>
       </div>
     )
   }
 
   return (
     <div className="w-[70vw] mx-auto mt-10">
+      {/* Header */}
       <div className="flex flex-col gap-y-3 mb-5">
         <div className="flex gap-x-3 text-white items-center">
           <button
@@ -42,6 +65,7 @@ export default function PortfolioPage() {
         <h1 className="text-slate-400">Track all your positions in one place</h1>
       </div>
 
+      {/* Stats */}
       <div className="flex gap-x-3 text-white">
         <div className="bg-slate-800 p-5 flex flex-col gap-y-2 w-1/3 rounded-md">
           <h1 className="text-slate-600">Net Value</h1>
@@ -54,6 +78,7 @@ export default function PortfolioPage() {
         </div>
       </div>
 
+      {/* Tab Buttons */}
       <div className="my-3 flex text-white bg-slate-800 w-fit rounded-md mt-5">
         {['lended', 'borrowed', 'log', 'pending'].map((tab) => (
           <button
@@ -68,6 +93,7 @@ export default function PortfolioPage() {
         ))}
       </div>
 
+      {/* Conditional Tab Content */}
       <div className="mt-4">
         {activeTab === 'lended' && <LendedTable />}
         {activeTab === 'borrowed' && <BorrowTable />}

@@ -1,120 +1,82 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { Button } from '@/components/ui/button'
 
-interface LendingRow {
+interface LendRow {
+  id: number
   date: string
-  type: 'p2p' | 'pool'
+  status: string
   token: string
-  amount: string
-  usdtEquivalent: string
+  amount: number
+  usdtValue: number
   wallet: string
 }
 
-const MAX_DISPLAY = 20
-
 export default function LendedTable() {
   const [wallet, setWallet] = useState<string | null>(null)
-  const [lendingData, setLendingData] = useState<LendingRow[]>([])
+  const [data, setData] = useState<LendRow[]>([])
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     const stored = localStorage.getItem('wallet')
-    if (stored) setWallet(stored)
+    if (!stored) return setLoading(false)
+    setWallet(stored)
 
-    // Simulated API response
-    const dummyData: LendingRow[] = [
-      {
-        date: '2025-05-14',
-        type: 'p2p',
-        token: 'XRP',
-        amount: '5,000 XRP',
-        usdtEquivalent: '10,000 USDT',
-        wallet: '0x2193182903',
-      },
-      {
-        date: '2025-05-13',
-        type: 'p2p',
-        token: 'BTC',
-        amount: '0.75 BTC',
-        usdtEquivalent: '47,250 USDT',
-        wallet: '0x7acb72a802',
-      },
-      {
-        date: '2025-05-13',
-        type: 'p2p',
-        token: 'USDT',
-        amount: '12,000 USDT',
-        usdtEquivalent: '12,000 USDT',
-        wallet: '0x332b9d20ef',
-      },
-      {
-        date: '2025-05-12',
-        type: 'pool',
-        token: 'DOGE',
-        amount: '150,000 DOGE',
-        usdtEquivalent: '12,000 USDT',
-        wallet: '0',
-      },
-      {
-        date: '2025-05-11',
-        type: 'pool',
-        token: 'ETH',
-        amount: '8 ETH',
-        usdtEquivalent: '20,000 USDT',
-        wallet: '0',
-      },
-    ]
-
-    // Optionally filter by current user wallet
-    setLendingData(dummyData)
+    fetch(`/api/portfolio/lended?wallet=${stored}`)
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.transactions) setData(json.transactions)
+      })
+      .finally(() => setLoading(false))
   }, [])
 
-  if (!wallet) {
-    return (
-      <div className="w-full mt-6 text-center text-slate-400">
-        Please connect your wallet to view your lending activity.
-      </div>
-    )
-  }
-
-  const displayed = lendingData.slice(0, MAX_DISPLAY)
+  if (loading) return <div className="text-center mt-6 text-slate-400">Loading Lended data…</div>
+  if (!wallet) return <div className="text-center mt-6 text-slate-400">Connect your wallet to see Lended data.</div>
+  if (data.length === 0) return <div className="text-center mt-6 text-slate-400">No Lended transactions found.</div>
 
   return (
-    <div className="w-full mt-10">
-      {/* Table Header */}
-      <div className="flex items-center justify-between bg-slate-900 text-white font-semibold rounded-t-2xl px-4 py-3 text-sm">
+    <div className="mt-6 w-full">
+      <div className="flex font-semibold text-sm bg-slate-900 text-white px-4 py-3 rounded-t-2xl">
         <div className="flex-1">Date</div>
-        <div className="flex-1 text-right">Type</div>
+        <div className="flex-1 text-right">Status</div>
         <div className="flex-1 text-right">Token</div>
         <div className="flex-1 text-right">Amount</div>
         <div className="flex-1 text-right">≈ USDT</div>
-        <div className="flex-1 text-right">Wallet</div>
+        <div className="flex-1 text-right">Borrower Wallet</div>
+        <div className="flex-1 text-right">Action</div>
       </div>
 
-      {/* Lending Data Rows */}
-      {displayed.map((row, idx) => (
+      {data.map((row) => (
         <div
-          key={idx}
-          className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-b-2xl p-4 mt-2 transition text-sm"
+          key={row.id}
+          className="flex items-center text-sm bg-slate-800 text-white p-4 mt-2 rounded-b-2xl hover:bg-slate-700 transition"
         >
-          <div className="flex-1 text-white">{row.date}</div>
-          <div className="flex-1 text-right capitalize text-white">{row.type}</div>
-
-          <div className="flex-1 text-right text-white">{row.token}</div>
-
-          <div className="flex-1 text-right text-white">{row.amount}</div>
-
-          <div className="flex-1 text-right text-white">{row.usdtEquivalent}</div>
-
-          <div className="flex-1 text-right text-white">{row.type === 'pool' ? 'N/A' : row.wallet}</div>
+          <div className="flex-1">{row.date}</div>
+          <div className="flex-1 text-right">
+            {row.status === 'Pending' && <span className="text-yellow-400">Pending</span>}
+            {row.status === 'Success' && <span className="text-green-400">Active</span>}
+            {row.status !== 'Pending' && row.status !== 'Success' && (
+              <span className="text-slate-400">{row.status}</span>
+            )}
+          </div>
+          <div className="flex-1 text-right">{row.token}</div>
+          <div className="flex-1 text-right">{row.amount}</div>
+          <div className="flex-1 text-right">{row.usdtValue} USDT</div>
+          <div className="flex-1 text-right">{row.wallet || 'N/A'}</div>
+          <div className="flex-1 text-right">
+            {row.status === 'Success' && (
+              <Button
+                size="sm"
+                className="bg-blue-600 hover:bg-blue-500 text-white"
+                onClick={() => alert(`Withdraw logic for tx ${row.id}`)}
+              >
+                Withdraw
+              </Button>
+            )}
+          </div>
         </div>
       ))}
-
-      {lendingData.length > MAX_DISPLAY && (
-        <div className="text-center text-slate-400 text-sm mt-4">
-          Showing {MAX_DISPLAY} of {lendingData.length} entries
-        </div>
-      )}
     </div>
   )
 }

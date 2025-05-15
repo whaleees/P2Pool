@@ -53,7 +53,7 @@ export default function P2PTable() {
   }
 
   return (
-    <div className="w-full mt-10">
+    <div className="w-[70vw] mt-10 mx-auto">
       {/* Header Row */}
       <div className="flex justify-between items-center px-6 pb-2 text-slate-400 text-xs font-semibold uppercase">
         <div className="flex-1">Lender</div>

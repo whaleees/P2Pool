@@ -4,14 +4,16 @@ import React, { useEffect, useState } from 'react'
 import { ChevronLeft, ChevronRight, RotateCcw } from 'lucide-react'
 
 interface Transaction {
+  id: number
   date: string
   mode: 'p2p' | 'pool'
-  action: 'borrow' | 'lend'
-  status: 'Success' | 'Failed' | 'Pending'
+  action: string
+  status: string
   token: string
-  amount: string
-  usdtValue: string
-  wallet: string
+  amount: number
+  usdt_value: number
+  borrower_wallet: string
+  user_wallet: string
 }
 
 export default function TransactionLog() {
@@ -73,7 +75,7 @@ export default function TransactionLog() {
         <div className="flex-1 text-right">Amount</div>
         <div className="flex-1 text-right">≈ USDT</div>
         <div className="flex-1 text-right flex justify-end items-center gap-2">
-          Wallet
+          Borrower Wallet
           <button onClick={fetchTransactions} title="Refresh transactions">
             <RotateCcw className="w-4 h-4 text-slate-400 hover:text-white transition" />
           </button>
@@ -91,21 +93,24 @@ export default function TransactionLog() {
       {/* Transaction Rows */}
       {displayed.map((tx, idx) => (
         <div
-          key={start + idx}
+          key={tx.id}
           className="flex items-center justify-between bg-slate-800 hover:bg-slate-700 rounded-b-2xl p-4 mt-2 transition text-sm"
         >
           <div className="flex-1 text-white">{tx.date}</div>
           <div className="flex-1 text-right capitalize text-white">{tx.mode}</div>
           <div className="flex-1 text-right capitalize text-white">{tx.action}</div>
           <div className="flex-1 text-right">
-            {tx.status === 'Success' && <span className="text-green-400">{tx.status}</span>}
-            {tx.status === 'Failed' && <span className="text-red-400">{tx.status}</span>}
-            {tx.status === 'Pending' && <span className="text-yellow-400">{tx.status}</span>}
+            {tx.status.toLowerCase() === 'success' && <span className="text-green-400">Success</span>}
+            {tx.status.toLowerCase() === 'failed' && <span className="text-red-400">Failed</span>}
+            {tx.status.toLowerCase() === 'pending' && <span className="text-yellow-400">Pending</span>}
+            {!['success', 'failed', 'pending'].includes(tx.status.toLowerCase()) && (
+              <span className="text-slate-400">{tx.status}</span>
+            )}
           </div>
           <div className="flex-1 text-right text-white">{tx.token}</div>
           <div className="flex-1 text-right text-white">{tx.amount}</div>
-          <div className="flex-1 text-right text-white">{tx.usdtValue} USDT</div>
-          <div className="flex-1 text-right text-white">{tx.wallet}</div>
+          <div className="flex-1 text-right text-white">{tx.usdt_value} USDT</div>
+          <div className="flex-1 text-right text-white">{tx.borrower_wallet}</div>
         </div>
       ))}
 
