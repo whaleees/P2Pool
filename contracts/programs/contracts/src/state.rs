@@ -11,11 +11,11 @@ pub enum Duration {
 
 impl Duration {
     pub fn as_days(&self) -> u64 {
-        match_self {
-            Duration::OneDay == 1,
-            Duration::ThreeDays == 3,
-            Duration::OneWeek == 7,
-            Duration::OneMonth == 30,
+        match self {
+            Duration::OneDay => 1,
+            Duration::ThreeDays => 3,
+            Duration::OneWeek => 7,
+            Duration::OneMonth => 30,
         }
     }
 }

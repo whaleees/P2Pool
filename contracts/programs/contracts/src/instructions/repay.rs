@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
 use crate::state::*;
+use crate::event::*;
 use crate::error::ErrorCode;
-use crate::utils::transfer_token::{transfer_tokens, transfer_from_pool_to_user};
 use anchor_spl::token::{Token, TokenAccount};
+use crate::utils::transfer_token::{transfer_tokens, transfer_from_pool_to_user};
 
 #[derive(Accounts)]
 #[instruction(id: u64)]
@@ -67,7 +68,9 @@ pub fn repay_handler(
     let pool_borrow = &mut ctx.accounts.pool_borrow;
     let collateral_reserve = &mut ctx.accounts.collateral_reserve;
     let borrower = ctx.accounts.borrower.key();
+
     let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?; // bikin ErrorCode sendiri jika perlu
+    let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool.key().as_ref(), &[bump]]];
 
     require!(pool_borrow.borrower_wallet == borrower, ErrorCode::UnauthorizedAccess);
     require!(pool_borrow.borrow_mint == repay_token, ErrorCode::InvalidToken);
@@ -94,9 +97,6 @@ pub fn repay_handler(
         .ok_or(ErrorCode::MathOverflow)?;
 
     if pool_borrow.borrow_amount == 0 {
-        let bump = *ctx.bumps.get("pool_signer").unwrap();
-        let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool.key().as_ref(), &[bump]]];
-
         transfer_from_pool_to_user(
             ctx.accounts.reserve_token_account.to_account_info(),
             ctx.accounts.borrower_token_account.to_account_info(),
@@ -111,6 +111,14 @@ pub fn repay_handler(
             pool_borrow.collateral_amount,
         )?;
     }
+    
+    emit!(RepayEvent {
+        borrower: ctx.accounts.borrower.key(),
+        repay_mint: repay_token,
+        repay_amount,
+        borrow_id: id,
+        collateral_released: pool_borrow.borrow_amount == 0,
+    });
 
     Ok(())
 }

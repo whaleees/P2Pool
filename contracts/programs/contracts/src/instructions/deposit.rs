@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
 use crate::state::*;
+use crate::event::*;
 use crate::error::ErrorCode;
 use crate::utils::transfer_token::{transfer_tokens};
 use anchor_spl::token::{Token, TokenAccount};
@@ -93,6 +94,14 @@ pub fn deposit_handler(
         lent_token,
         lent_amount,
     )?;
+
+    emit!(DepositEvent {
+        lender: ctx.accounts.borrower.key(),
+        token_mint: lent_token,
+        lent_amount,
+        deposit_id: id,
+    });
+
 
     Ok(())
 }

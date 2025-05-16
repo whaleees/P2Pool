@@ -32,4 +32,8 @@ pub enum ErrorCode{
     AlreadyRepaid,
     #[msg("Bump is missing!!")] 
     MissingBump,
+    #[msg("Offer is already taken")] 
+    OfferNotActive,
+    #[msg("Invalid Argument")] 
+    InvalidArgument,
 }
