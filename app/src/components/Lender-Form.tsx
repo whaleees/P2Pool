@@ -15,7 +15,7 @@ export default function LenderForm() {
     duration: '',
   })
 
-  // Fetch wallet on mount
+  // Get wallet from localStorage
   useEffect(() => {
     const storedWallet = localStorage.getItem('wallet')
     if (storedWallet) setWallet(storedWallet)
@@ -32,7 +32,12 @@ export default function LenderForm() {
     }
   }, [wallet])
 
-  // If wallet connected but no username
+  // Display message if wallet not found
+  if (!wallet) {
+    return <div className="mt-6 text-center text-slate-400">🔌 Connect your wallet to lend.</div>
+  }
+
+  // Registration form if wallet has no username
   if (wallet && !username) {
     return (
       <div className="mt-6 max-w-sm mx-auto flex flex-col gap-2 bg-slate-800 p-4 rounded">
@@ -51,7 +56,7 @@ export default function LenderForm() {
           disabled={!usernameInput.trim()}
           onClick={async () => {
             setLoading(true)
-            const res = await fetch('/api/lender', {
+            const res = await fetch('/api/P2P_Post_Offer', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
               body: JSON.stringify({ wallet, name: usernameInput.trim() }),
@@ -71,7 +76,7 @@ export default function LenderForm() {
     )
   }
 
-  // Calculate dynamic USDT value
+  // Get mock token prices
   const getTokenPrice = async (token: string): Promise<number> => {
     const mockPrices: Record<string, number> = {
       SOL: 25,
@@ -88,28 +93,34 @@ export default function LenderForm() {
   }
 
   const handleSubmit = async () => {
+    // 1. Validation: ensure all fields are filled
     if (!form.token || !form.total_supply || !form.collateral_token || !form.collateral_amount || !form.duration) {
       alert('Please fill in all fields')
       return
     }
 
-    const usdtRate = await getTokenPrice(form.token)
+    // 2. Get token price in USDT (for calculating value)
+    const usdtRate = await getTokenPrice(form.token) // e.g., 25 for SOL
+
+    // 3. Build payload
     const payload = {
-      user_wallet: wallet,
-      token: form.token,
+      user_wallet: wallet, // From localStorage
+      token: form.token.toUpperCase(), // Normalize input
       total_supply: parseFloat(form.total_supply),
-      collateral_token: form.collateral_token,
+      collateral_token: form.collateral_token.toUpperCase(),
       collateral_amount: parseFloat(form.collateral_amount),
-      usdt_value: parseFloat(form.total_supply) * usdtRate,
+      usdt_value: parseFloat(form.total_supply) * usdtRate, // Supply x price
       duration: parseInt(form.duration),
     }
 
+    // 4. POST to /api/p2p-offers
     const res = await fetch('/api/p2p-offers', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
 
+    // 5. Show result
     if (res.ok) {
       alert('✅ Offer posted to the market')
       setForm({
@@ -124,67 +135,63 @@ export default function LenderForm() {
     }
   }
 
-  if (wallet && username) {
-    return (
-      <div className="mt-6 max-w-md mx-auto bg-slate-800 p-6 rounded-lg text-white">
-        <div className="mb-4">
-          <p className="text-sm text-slate-400">
-            Wallet: <code>{wallet}</code>
-          </p>
-          <p className="text-sm text-slate-400">
-            Username: <strong>{username}</strong>
-          </p>
-        </div>
-
-        <div className="space-y-3">
-          <input
-            name="token"
-            placeholder="Token (e.g. SOL)"
-            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
-            value={form.token}
-            onChange={handleChange}
-          />
-          <input
-            name="total_supply"
-            placeholder="Supply Amount"
-            type="number"
-            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
-            value={form.total_supply}
-            onChange={handleChange}
-          />
-          <input
-            name="collateral_token"
-            placeholder="Collateral Token (e.g. USDC)"
-            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
-            value={form.collateral_token}
-            onChange={handleChange}
-          />
-          <input
-            name="collateral_amount"
-            placeholder="Collateral Amount"
-            type="number"
-            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
-            value={form.collateral_amount}
-            onChange={handleChange}
-          />
-          <input
-            name="duration"
-            placeholder="Duration (days)"
-            type="number"
-            className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
-            value={form.duration}
-            onChange={handleChange}
-          />
-          <button
-            onClick={handleSubmit}
-            className="w-full mt-2 px-4 py-2 bg-gradient-to-r from-sky-400 to-blue-600 rounded"
-          >
-            Post Offer to Market
-          </button>
-        </div>
+  return (
+    <div className="mt-6 max-w-md mx-auto bg-slate-800 p-6 rounded-lg text-white">
+      <div className="mb-4">
+        <p className="text-sm text-slate-400">
+          Wallet: <code>{wallet}</code>
+        </p>
+        <p className="text-sm text-slate-400">
+          Username: <strong>{username}</strong>
+        </p>
       </div>
-    )
-  }
 
-  return <div className="mt-6 text-center text-slate-400">Loading wallet info…</div>
+      <div className="space-y-3">
+        <input
+          name="token"
+          placeholder="Token (e.g. SOL)"
+          className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+          value={form.token}
+          onChange={handleChange}
+        />
+        <input
+          name="total_supply"
+          placeholder="Supply Amount"
+          type="number"
+          className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+          value={form.total_supply}
+          onChange={handleChange}
+        />
+        <input
+          name="collateral_token"
+          placeholder="Collateral Token (e.g. USDC)"
+          className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+          value={form.collateral_token}
+          onChange={handleChange}
+        />
+        <input
+          name="collateral_amount"
+          placeholder="Collateral Amount"
+          type="number"
+          className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+          value={form.collateral_amount}
+          onChange={handleChange}
+        />
+        <input
+          name="duration"
+          placeholder="Duration (days)"
+          type="number"
+          className="w-full px-3 py-2 rounded bg-slate-700 border border-slate-600"
+          value={form.duration}
+          onChange={handleChange}
+        />
+        <button
+          onClick={handleSubmit}
+          className="w-full mt-2 px-4 py-2 bg-gradient-to-r from-sky-400 to-blue-600 rounded"
+        >
+          Post Offer to Market
+        </button>
+      </div>
+    </div>
+  )
 }

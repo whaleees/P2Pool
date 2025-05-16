@@ -22,37 +22,29 @@ export default function PendingRequests() {
 
   useEffect(() => {
     const stored = localStorage.getItem('wallet')
-    if (stored) setWallet(stored)
+    if (stored) {
+      setWallet(stored)
 
-    // Simulated fetch from backend
-    const dummyData: PendingRequest[] = [
-      {
-        wallet: '0x7acb72a802',
-        orders: 12,
-        completion: '—',
-        success: false,
-        token: 'BTC',
-        amount: '0.75',
-        usdtValue: '47,250',
-        collateralCoin: 'USDC',
-        collateralAmt: '1,000',
-        collateralUSDT: '1,000',
-      },
-      {
-        wallet: '0x2193182903',
-        orders: 8,
-        completion: '—',
-        success: false,
-        token: 'XRP',
-        amount: '5,000',
-        usdtValue: '10,000',
-        collateralCoin: 'SOL',
-        collateralAmt: '200',
-        collateralUSDT: '20,000',
-      },
-    ]
-
-    setRequests(dummyData)
+      fetch(`/api/portfolio/pending?wallet=${stored}`)
+        .then((res) => res.json())
+        .then((res) => {
+          if (res.requests) {
+            const parsed = res.requests.map((r: any) => ({
+              wallet: r.user_wallet,
+              orders: 0, // optional, or fetch separately from user table
+              completion: '—',
+              success: r.status === 'Success',
+              token: r.token,
+              amount: r.token_amount.toLocaleString(),
+              usdtValue: r.usdt_token_value.toLocaleString(),
+              collateralCoin: r.collateral_token,
+              collateralAmt: r.collateral_amount.toLocaleString(),
+              collateralUSDT: r.usdt_collateral_value.toLocaleString(),
+            }))
+            setRequests(parsed)
+          }
+        })
+    }
   }, [])
 
   const handleAction = (type: 'accept' | 'reject', req: PendingRequest) => {

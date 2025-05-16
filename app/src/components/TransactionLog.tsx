@@ -32,7 +32,7 @@ export default function TransactionLog() {
     if (!wallet) return
     setLoading(true)
     try {
-      const res = await fetch(`/api/transactions?wallet=${wallet}`)
+      const res = await fetch(`/api/portfolio/transactions?wallet=${wallet}`)
       const data = await res.json()
       setTransactions(data.transactions || [])
     } catch (err) {

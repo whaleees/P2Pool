@@ -14,10 +14,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 
-// matches your p2p_offers table
 export interface P2PRow {
   id: number
-  lender: string
+  user_wallet: string // actual lender wallet
+  lender: string // display username
   total_orders: number
   completion: string
   like_rate: string
@@ -49,16 +49,50 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
   const handleRequest = async () => {
     setSubmitting(true)
 
+    const borrower_wallet = localStorage.getItem('wallet')
+    if (!borrower_wallet) {
+      alert('⚠️ Please connect your wallet first.')
+      setSubmitting(false)
+      return
+    }
+
+    const payload = {
+      offer_id: row.id,
+      borrower_wallet,
+      user_wallet: row.user_wallet, // actual wallet
+      status: 'Pending',
+      token: row.offer_token,
+      token_amount: amount,
+      usdt_token_value: parseFloat((row.offer_usdt * (amount / row.offer_amount)).toFixed(2)),
+      collateral_token: row.collateral_token,
+      collateral_amount: collAmt,
+      usdt_collateral_value: parseFloat((row.collateral_usdt * (collAmt / row.collateral_min)).toFixed(2)),
+      duration: row.duration,
+    }
+
+    console.log('📦 Submitting payload:', payload)
+
     try {
-      // Simulate backend call
-      onRequest(amount, collAmt)
-      alert('✅ Borrow request submitted.')
+      const res = await fetch('/api/pending_requests', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+
+      if (res.ok) {
+        alert('✅ Borrow request submitted.')
+        onRequest(amount, collAmt)
+        onOpenChange(false)
+      } else {
+        const errData = await res.json()
+        console.error(errData)
+        alert('❌ Failed to submit request.')
+      }
     } catch (err) {
       console.error(err)
-      alert('❌ Failed to submit request.')
+      alert('❌ Network error. Please try again.')
     } finally {
       setSubmitting(false)
-      onOpenChange(false)
     }
   }
 
@@ -98,7 +132,6 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
           </div>
         </div>
 
-        {/* Borrow Amount */}
         <div className="mt-6">
           <Label htmlFor="borrowAmt" className="text-slate-300">
             Borrow Amount ({row.offer_token})
@@ -116,7 +149,6 @@ export const BorrowRequestModal: FC<BorrowRequestModalProps> = ({ row, open, onO
           </p>
         </div>
 
-        {/* Collateral Amount */}
         <div className="mt-4">
           <Label htmlFor="collAmt" className="text-slate-300">
             Collateral Amount ({row.collateral_token})

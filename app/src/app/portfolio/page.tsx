@@ -1,52 +1,18 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { ArrowLeft, PlusCircle } from 'lucide-react'
 import LendedTable from '@/components/Lended-Table'
 import BorrowTable from '@/components/Borrow-Table'
 import TransactionLog from '@/components/TransactionLog'
 import P2PRequests from '@/components/P2P-Requests'
-import { ArrowLeft } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import { Button } from '@/components/ui/button'
 
-export default function PortfolioPage() {
-  const [wallet, setWallet] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'lended' | 'borrowed' | 'log' | 'pending'>('lended')
+export default function DashboardPage() {
   const router = useRouter()
-
-  useEffect(() => {
-    const checkWallet = () => {
-      const stored = localStorage.getItem('wallet')
-      setWallet(stored)
-      setLoading(false)
-    }
-
-    checkWallet()
-
-    const handleChange = () => checkWallet()
-    window.addEventListener('storage', handleChange)
-    window.addEventListener('visibilitychange', handleChange)
-    window.addEventListener('wallet-change', handleChange) // Custom manual dispatch
-
-    return () => {
-      window.removeEventListener('storage', handleChange)
-      window.removeEventListener('visibilitychange', handleChange)
-      window.removeEventListener('wallet-change', handleChange)
-    }
-  }, [])
-
-  if (loading) {
-    return <div className="w-[70vw] mx-auto mt-10 text-center text-slate-400">Loading wallet info...</div>
-  }
-
-  if (!wallet) {
-    return (
-      <div className="w-[70vw] mx-auto mt-10 text-center text-slate-400">
-        <h1 className="text-2xl mb-4">Portfolio</h1>
-        <p>Please connect your wallet to view your portfolio.</p>
-      </div>
-    )
-  }
+  const [activeTab, setActiveTab] = useState<'lended' | 'borrowed' | 'log' | 'pending'>('lended')
 
   return (
     <div className="w-[70vw] mx-auto mt-10">
@@ -65,7 +31,7 @@ export default function PortfolioPage() {
         <h1 className="text-slate-400">Track all your positions in one place</h1>
       </div>
 
-      {/* Stats */}
+      {/* Summary Boxes */}
       <div className="flex gap-x-3 text-white">
         <div className="bg-slate-800 p-5 flex flex-col gap-y-2 w-1/3 rounded-md">
           <h1 className="text-slate-600">Net Value</h1>
@@ -78,22 +44,31 @@ export default function PortfolioPage() {
         </div>
       </div>
 
-      {/* Tab Buttons */}
-      <div className="my-3 flex text-white bg-slate-800 w-fit rounded-md mt-5">
-        {['lended', 'borrowed', 'log', 'pending'].map((tab) => (
+      <div className="border-t border-slate-700 mt-5"></div>
+
+      {/* Tab Switcher */}
+      <div className="my-3 flex text-white bg-slate-800 w-fit rounded-md">
+        {[
+          { key: 'lended', label: 'Lend' },
+          { key: 'borrowed', label: 'Borrow' },
+          { key: 'log', label: 'Transaction Log' },
+          { key: 'pending', label: 'Pending' },
+        ].map((tab) => (
           <button
-            key={tab}
-            onClick={() => setActiveTab(tab as any)}
+            key={tab.key}
+            onClick={() => setActiveTab(tab.key as any)}
             className={`p-2 px-5 transition rounded-md ${
-              activeTab === tab ? 'bg-slate-600' : 'bg-slate-800 hover:bg-slate-700'
+              activeTab === tab.key ? 'bg-slate-600' : 'bg-slate-800 hover:bg-slate-700'
             }`}
           >
-            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+            {tab.label}
           </button>
         ))}
       </div>
 
-      {/* Conditional Tab Content */}
+      <div className="border-t border-slate-700 mt-5"></div>
+
+      {/* Render Active Tab */}
       <div className="mt-4">
         {activeTab === 'lended' && <LendedTable />}
         {activeTab === 'borrowed' && <BorrowTable />}

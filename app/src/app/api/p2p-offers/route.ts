@@ -1,9 +1,10 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 
 const supabase = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!)
 
-export async function GET(req: Request) {
+// --- GET: List paginated offers ---
+export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url)
   const page = parseInt(searchParams.get('page') || '0')
   const limit = parseInt(searchParams.get('limit') || '10')
@@ -51,7 +52,7 @@ export async function GET(req: Request) {
       duration: item.duration,
       total_orders: item.user?.total_orders || 0,
       completion: `${completionRate}%`,
-      like_rate: `${Math.floor(60 + Math.random() * 30)}%`, // optional placeholder
+      like_rate: `${Math.floor(60 + Math.random() * 30)}%`, // optional
     }
   })
 
@@ -61,4 +62,41 @@ export async function GET(req: Request) {
     page,
     pageSize: limit,
   })
+}
+
+// --- POST: Create new offer ---
+export async function POST(req: NextRequest) {
+  const body = await req.json()
+  const { user_wallet, token, total_supply, collateral_token, collateral_amount, usdt_value, duration } = body
+
+  // Validation
+  if (
+    !user_wallet ||
+    !token ||
+    total_supply == null ||
+    !collateral_token ||
+    collateral_amount == null ||
+    usdt_value == null ||
+    duration == null
+  ) {
+    return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+  }
+
+  const { error } = await supabase.from('p2p_offers').insert([
+    {
+      user_wallet,
+      token: token.toUpperCase(),
+      total_supply: parseFloat(total_supply),
+      collateral_token: collateral_token.toUpperCase(),
+      collateral_amount: parseFloat(collateral_amount),
+      usdt_value: parseFloat(usdt_value),
+      duration: parseInt(duration),
+      total_borrowed: 0,
+      created_at: new Date().toISOString(),
+    },
+  ])
+
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  return NextResponse.json({ success: true })
 }
