@@ -1,12 +1,10 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{Token, TokenAccount};
 use crate::state::*;
 use crate::event::*;
 use crate::error::ErrorCode;
-use pyth_solana_receiver_sdk::price_update::{PriceUpdateV2, get_feed_id_from_hex};
-use anchor_spl::token::{Token, TokenAccount};
-use crate::utils::transfer_token::{transfer_tokens, transfer_from_pool_to_user};
-
-pub const BTC_FEED_ID: &str = "0xff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace";
+use crate::utils::oracle_mock::*;
+use crate::utils::transfer_token::*;
 
 #[derive(Accounts)]
 #[instruction(id: u64)]
@@ -28,42 +26,24 @@ pub struct Borrow<'info> {
 
     #[account(init, payer = payer, space = 8 + std::mem::size_of::<CollateralReserve>())]
     pub collateral_reserve: Account<'info, CollateralReserve>,
-
     
-    #[account(
-        mut,
-        // constraint = reserve_token_account.mint == collateral_token @ ErrorCode::InvalidToken,
-        constraint = reserve_token_account.owner == pool_signer.key() @ ErrorCode::UnauthorizedAccess,
-    )]
+    #[account(mut, constraint = reserve_token_account.owner == pool_signer.key() @ ErrorCode::UnauthorizedAccess,)]
     pub reserve_token_account: Account<'info, TokenAccount>,
     
-    #[account(
-        mut,
-        // constraint = borrower_token_account.mint == borrow_token @ ErrorCode::InvalidToken,
-        constraint = borrower_token_account.owner == borrower.key() @ ErrorCode::UnauthorizedAccess,
-    )]
+    #[account(mut, constraint = borrower_token_account.owner == borrower.key() @ ErrorCode::UnauthorizedAccess,)]
     pub borrower_token_account: Account<'info, TokenAccount>,
     
-    #[account(
-        mut,
-        // constraint = pool_token_account.mint == borrow_token @ ErrorCode::InvalidToken,
-        constraint = pool_token_account.owner == pool_signer.key() @ ErrorCode::UnauthorizedAccess,
-    )]
+    #[account(mut, constraint = pool_token_account.owner == pool_signer.key() @ ErrorCode::UnauthorizedAccess,)]
     pub pool_token_account: Account<'info, TokenAccount>,
     
     pub token_program: Program<'info, Token>,
     
-    #[account(
-        seeds = [b"pool_signer", pool.key().as_ref()],
-        bump
-    )]
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
+    #[account(seeds = [b"pool_signer", pool.key().as_ref()], bump)]
     pub pool_signer: AccountInfo<'info>,
     
     #[account(mut)]
     pub payer: Signer<'info>,
-    pub collateral_price_feed: Account<'info, PriceUpdateV2>,
-    pub borrow_price_feed: Account<'info, PriceUpdateV2>,
-    
     pub system_program: Program<'info, System>,
 }
 
@@ -74,36 +54,23 @@ pub fn borrow_handler(
     collateral_token: Pubkey, 
     collateral_amount: u64,
     id: u64,
+    borrow_feed_id: String,
+    collateral_feed_id: String,
+    duration: Duration,
 ) -> Result<()> {
+    let pool_key = ctx.accounts.pool.key();
     let pool = &mut ctx.accounts.pool;
     let pool_borrow = &mut ctx.accounts.pool_borrow;
     let collateral_reserve = &mut ctx.accounts.collateral_reserve;
-    let pool_key = ctx.accounts.pool.key();
-    let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?; 
+    let bump = ctx.bumps.pool_signer; 
     let signer_seeds = &[b"pool_signer", pool_key.as_ref(), &[bump]];
 
-    //load collateral and borrow price feeds
-    let collateral_price_update = &mut ctx.accounts.collateral_price_feed;
-    let borrow_price_update = &mut ctx.accounts.borrow_price_feed;
-
-    let collateral_feed = get_feed_id_from_hex(BTC_FEED_ID)?;
-    let borrow_feed = get_feed_id_from_hex(BTC_FEED_ID)?;
-
-    // get the price from feed
-    let collateral_price = collateral_price_update.get_price_no_older_than(
-        &Clock::get()?,
-        30,
-        &collateral_feed,
-    )? as u64;
-        
-    let borrow_price = borrow_price_update.get_price_no_older_than(
-        &Clock::get(),
-        30,
-        &borrow_feed,
-    )? as u64;
+    //get mocked prices
+    let borrow_price = get_mock_price(&borrow_feed_id)? as u64;
+    let collateral_price = get_mock_price(&collateral_feed_id)? as u64;
        
     // threshold is 120% of the borrow value
-    let required_threshold = borrow_price.price
+    let required_threshold = borrow_price
         .checked_mul(120)
         .ok_or(ErrorCode::MathOverflow)?
         .checked_div(100)
@@ -111,7 +78,7 @@ pub fn borrow_handler(
 
     // the collateral amount must be greater than borrow amount
     require!(
-        collateral_amount == required_threshold,
+        collateral_price == required_threshold,
         ErrorCode::Undercollateralized
     );
     
@@ -121,7 +88,7 @@ pub fn borrow_handler(
     pool_borrow.borrow_mint = borrow_token;
     pool_borrow.collateral_amount = collateral_amount;
     pool_borrow.collateral_mint = collateral_token;
-    pool_borrow.borrowed_at = Clock::get()?.unix_timestamp as u64;
+    pool_borrow.duration = duration;
     pool_borrow.interest_rate_borrowing = 5_00;
     
     pool.borrow_counter = pool.borrow_counter

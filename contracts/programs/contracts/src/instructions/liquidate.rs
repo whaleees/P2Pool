@@ -1,10 +1,10 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{Token, TokenAccount};
 use crate::state::*;
 use crate::event::*;
 use crate::error::ErrorCode;
-use pyth_solana_receiver_sdk::price_update::{get_feed_id_from_hex, PriceUpdateV2};
-use crate::utils::transfer_token::{transfer_from_pool_to_user};
-use anchor_spl::token::{Token, TokenAccount};
+use crate::utils::transfer_token::*;
+use crate::utils::oracle_mock::*;
 
 #[derive(Accounts)]
 #[instruction(id: u64)]
@@ -36,7 +36,8 @@ pub struct Liquidate<'info> {
         constraint = liquidator_token_account.owner == liquidator.key() @ ErrorCode::UnauthorizedAccess
     )]
     pub liquidator_token_account: Account<'info, TokenAccount>,
-
+    
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
     #[account(
         seeds = [b"pool_signer", pool.key().as_ref()],
         bump
@@ -46,9 +47,6 @@ pub struct Liquidate<'info> {
     #[account(mut)]
     pub collateral_reserve: Account<'info, CollateralReserve>,
     
-    pub collateral_price_feed: Account<'info, PriceUpdateV2>,
-    pub borrow_price_feed: Account<'info, PriceUpdateV2>,
-    
     pub system_program: Program<'info, System>,
     pub token_program: Program<'info, Token>,
 }
@@ -56,12 +54,13 @@ pub struct Liquidate<'info> {
 pub fn liquidate_handler(
     ctx: Context<Liquidate>,
     id: u64,
+    borrow_feed_id: String,
+    collateral_feed_id: String,
 ) -> Result<()> {
     let pool_borrow = &mut ctx.accounts.pool_borrow;
     let collateral_reserve = &mut ctx.accounts.collateral_reserve;
     let pool_key = ctx.accounts.pool.key();
-
-    let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?; 
+    let bump = ctx.bumps.pool_signer; 
     let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool_key.as_ref(), &[bump]]];
 
 
@@ -70,33 +69,26 @@ pub fn liquidate_handler(
         ErrorCode::AlreadyRepaid
     );
 
-    let collateral_price_update = &mut ctx.accounts.collateral_price_feed;
-    let borrow_price_update = &mut ctx.accounts.borrow_price_feed;
+   let borrow_price = get_mock_price(&borrow_feed_id)? as u64;
+   let collateral_price = get_mock_price(&collateral_feed_id)? as u64;
 
-    let collateral_feed: [u8; 32] = get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
-    let borrow_feed: [u8; 32] = get_feed_id_from_hex("0xe62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43")?;
+    let borrow_price = borrow_price
+        .checked_mul(pool_borrow.borrow_amount)
+        .ok_or(ErrorCode::MathOverflow)?;
 
-    let collateral_price = collateral_price_update.get_price_no_older_than(
-        collatteral_price_update,
-        30,
-        &collateral_feed,
-    )? as u64;
-
-    let borrow_price = borrow_price_update.get_price_no_older_than(
-        borrow_price_update,
-        30,
-        &borrow_feed,
-    )? as u64;
+    let collateral_price = collateral_price
+        .checked_mul(pool_borrow.collateral_amount)
+        .ok_or(ErrorCode::MathOverflow)?;
 
     // calculate threshold >= 150%
-    let liquidation_threshold = borrow_price.price
+    let liquidation_threshold = borrow_price
         .checked_mul(150)
         .ok_or(ErrorCode::MathOverflow)?
         .checked_div(100)
         .ok_or(ErrorCode::MathOverflow)?;
 
     require!(
-        collateral_price.price < liquidation_threshold,
+        collateral_price < liquidation_threshold,
         ErrorCode::StillHealthy
     );
 

@@ -40,6 +40,7 @@ pub struct Deposit<'info>{
 
     pub system_program: Program<'info, System>,
 
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
     #[account(
         seeds = [b"pool_signer", pool.key().as_ref()],
         bump
@@ -61,7 +62,7 @@ pub fn deposit_handler(
 
     let pool = &mut ctx.accounts.pool;
     let pool_deposit = &mut ctx.accounts.pool_deposit;
-    let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?; 
+    // let bump = ctx.bumps.pool_signer; 
 
     require!(
         ctx.accounts.lender_token_account.mint == lent_token,
@@ -96,9 +97,9 @@ pub fn deposit_handler(
     )?;
 
     emit!(DepositEvent {
-        lender: ctx.accounts.borrower.key(),
+        lender: ctx.accounts.lender.key(),
         token_mint: lent_token,
-        lent_amount,
+        amount: lent_amount,
         deposit_id: id,
     });
 

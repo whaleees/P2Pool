@@ -26,6 +26,7 @@ pub struct OfferP2P<'info> {
     )]
     pub lender_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
     #[account(
         seeds = [b"pool_signer", pool.key().as_ref()],
         bump
@@ -118,6 +119,7 @@ pub struct AcceptP2P<'info> {
     #[account(mut)]
     pub reserve_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
     #[account(
         seeds = [b"pool_signer", pool.key().as_ref()],
         bump
@@ -137,8 +139,9 @@ pub fn accept_p2p_handler(ctx: Context<AcceptP2P>, id: u64) -> Result<()> {
     require!(p2p.borrow_amount > 0, ErrorCode::InvalidAmount);
 
     // Transfer lending token to borrower
-    let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?;
-    let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", ctx.accounts.pool.key().as_ref(), &[bump]]];
+    let bump = ctx.bumps.pool_signer;
+    let pool_key = ctx.accounts.pool.key();
+    let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool_key.as_ref(), &[bump]]];
 
     transfer_from_pool_to_user(
         ctx.accounts.pool_token_account.to_account_info(),

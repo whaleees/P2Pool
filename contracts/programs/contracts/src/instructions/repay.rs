@@ -43,6 +43,7 @@ pub struct Repay<'info> {
     )]
     pub pool_token_account: Account<'info, TokenAccount>,
 
+    /// CHECK: This is a PDA signer derived from the pool. Verified by seeds and bump.
     #[account(
         seeds = [b"pool_signer", pool.key().as_ref()],
         bump
@@ -64,13 +65,14 @@ pub fn repay_handler(
     collateral_token: Pubkey,
     id: u64,
 ) -> Result<()> {
+    let pool_key = ctx.accounts.pool.key();
     let pool = &mut ctx.accounts.pool;
     let pool_borrow = &mut ctx.accounts.pool_borrow;
     let collateral_reserve = &mut ctx.accounts.collateral_reserve;
     let borrower = ctx.accounts.borrower.key();
 
-    let bump = *ctx.bumps.get("pool_signer").ok_or(ErrorCode::MissingBump)?; // bikin ErrorCode sendiri jika perlu
-    let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool.key().as_ref(), &[bump]]];
+    let bump = ctx.bumps.pool_signer;
+    let signer_seeds: &[&[&[u8]]] = &[&[b"pool_signer", pool_key.as_ref(), &[bump]]];
 
     require!(pool_borrow.borrower_wallet == borrower, ErrorCode::UnauthorizedAccess);
     require!(pool_borrow.borrow_mint == repay_token, ErrorCode::InvalidToken);
@@ -89,7 +91,7 @@ pub fn repay_handler(
     pool.deposit(
         repay_token, 
         repay_amount,
-    );
+    )?;
 
     pool_borrow.borrow_amount = pool_borrow
         .borrow_amount

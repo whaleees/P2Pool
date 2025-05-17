@@ -22,6 +22,7 @@ const COLLATERAL_SPACE: usize = 8
 
 
 #[derive(Accounts)]
+#[instruction()]
 pub struct InitPoolReserve<'info> {
     #[account(init, payer = payer, space = POOL_SPACE)]
     pub pool: Account<'info, Pool>,
